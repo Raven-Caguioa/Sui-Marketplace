@@ -11,6 +11,7 @@ import InfoTab from './components/InfoTab';
 import AlertMessage from './components/AlertMessage';
 import MintNFT from './components/MintNFT';
 import ActiveListings from './components/ActiveListings';
+import MyCollection from './components/MyCollection'; // Import the new component
 
 // REPLACE THESE WITH YOUR ACTUAL IDs
 const PACKAGE_ID = '0x08ac46b00eb814de6e803b7abb60b42abbaf49712314f4ed188f4fea6d4ce3ec';
@@ -133,6 +134,7 @@ export default function MarketplaceFrontend() {
 
   const tabs = [
     { id: 'browse', label: 'Browse' },
+    { id: 'collection', label: 'My Collection' }, // New tab
     { id: 'mint', label: 'Mint NFT' },
     { id: 'list', label: 'List' },
     { id: 'buy', label: 'Buy' },
@@ -230,6 +232,17 @@ export default function MarketplaceFrontend() {
                 packageId={PACKAGE_ID}
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
+              />
+            )}
+
+            {activeTab === 'collection' && (
+              <MyCollection
+                account={account}
+                client={client}
+                loading={loading}
+                setLoading={setLoading}
+                setError={setError}
+                packageId={PACKAGE_ID}
               />
             )}
 
