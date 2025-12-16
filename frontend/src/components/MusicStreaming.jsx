@@ -15,6 +15,9 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
   const [pendingRewards, setPendingRewards] = useState(0);
   const [marketplaceStats, setMarketplaceStats] = useState({ totalMusic: 0, totalListens: 0, totalRewards: 0, poolBalance: 0 });
   const audioRef = React.useRef(null);
+  const BLOCKED_NFTS = new Set([
+  '0x1de1522f65eb06dab7e9a8497700067e24cc5c8fd4d178765b895f4e8c44dba5'
+  ]);
 
   // Fetch listed music NFTs
     const fetchListedMusic = async () => {
@@ -104,7 +107,8 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
             }
             });
 
-            const musicList = (await Promise.all(musicPromises)).filter(m => m !== null);
+            const musicList = (await Promise.all(musicPromises))
+              .filter(m => m !== null && !BLOCKED_NFTS.has(m.id));
             console.log(`Successfully loaded ${musicList.length} music NFTs`);
             setListedMusic(musicList);
         }
