@@ -15,6 +15,7 @@ import MyCollection from './components/MyCollection'; // Import the new componen
 import MusicStreaming from './components/MusicStreaming';
 import MintAndListMusic from './components/MintAndListMusic';
 import ListYourNFTs from './components/ListYourNFTs'; // ← ADD THIS TOO
+import UnlistMyNFTs from './components/UnlistMyNFTs'; // ← ADD THIS IMPORT
 
 // REPLACE THESE WITH YOUR ACTUAL IDs
 const PACKAGE_ID = '0x08ac46b00eb814de6e803b7abb60b42abbaf49712314f4ed188f4fea6d4ce3ec';
@@ -138,7 +139,8 @@ export default function MarketplaceFrontend() {
   const tabs = [
     { id: 'streaming', label: '🎵 Music Rewards' },
     { id: 'upload', label: '🎤 Upload Music' }, // NEW TAB
-    { id: 'mynfts', label: '📁 Send Music NFT' }, // ← ADD THIS    
+    { id: 'mynfts', label: '📁 Send Music NFT' }, // ← ADD THIS
+    { id: 'unlist', label: '📤 Unlist My NFTs' },    
     { id: 'browse', label: 'Browse' },
     { id: 'collection', label: 'My Collection' }, // New tab
     { id: 'mint', label: 'Mint NFT' },
@@ -262,6 +264,20 @@ export default function MarketplaceFrontend() {
                   signAndExecuteTransaction={signAndExecuteTransaction}
                 />
               )}
+
+              {activeTab === 'unlist' && (
+              <UnlistMyNFTs
+                account={account}
+                client={client}
+                loading={loading}
+                setLoading={setLoading}
+                setError={setError}
+                setSuccess={setSuccess}
+                signAndExecuteTransaction={signAndExecuteTransaction}
+                packageId={PACKAGE_ID}
+                marketplaceId={MARKETPLACE_ID}
+              />
+            )}
 
             {activeTab === 'browse' && (
               <ActiveListings
