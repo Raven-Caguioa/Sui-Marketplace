@@ -12,6 +12,9 @@ import AlertMessage from './components/AlertMessage';
 import MintNFT from './components/MintNFT';
 import ActiveListings from './components/ActiveListings';
 import MyCollection from './components/MyCollection'; // Import the new component
+import MusicStreaming from './components/MusicStreaming';
+import MintAndListMusic from './components/MintAndListMusic';
+import ListYourNFTs from './components/ListYourNFTs'; // ← ADD THIS TOO
 
 // REPLACE THESE WITH YOUR ACTUAL IDs
 const PACKAGE_ID = '0x08ac46b00eb814de6e803b7abb60b42abbaf49712314f4ed188f4fea6d4ce3ec';
@@ -133,6 +136,9 @@ export default function MarketplaceFrontend() {
   const truncateAddress = (addr) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 
   const tabs = [
+    { id: 'streaming', label: '🎵 Music Rewards' },
+    { id: 'upload', label: '🎤 Upload Music' }, // NEW TAB
+    { id: 'mynfts', label: '📁 Send Music NFT' }, // ← ADD THIS    
     { id: 'browse', label: 'Browse' },
     { id: 'collection', label: 'My Collection' }, // New tab
     { id: 'mint', label: 'Mint NFT' },
@@ -222,6 +228,41 @@ export default function MarketplaceFrontend() {
           </div>
 
           <div className="p-6">
+            {activeTab === 'streaming' && (
+              <MusicStreaming
+                account={account}
+                client={client}
+                loading={loading}
+                setLoading={setLoading}
+                setError={setError}
+                setSuccess={setSuccess}
+                signAndExecuteTransaction={signAndExecuteTransaction}
+              />
+            )}
+
+            {activeTab === 'upload' && (
+              <MintAndListMusic
+                account={account}
+                loading={loading}
+                setLoading={setLoading}
+                setError={setError}
+                setSuccess={setSuccess}
+                signAndExecuteTransaction={signAndExecuteTransaction}
+              />
+            )}
+
+              {activeTab === 'mynfts' && (
+                <ListYourNFTs
+                  account={account}
+                  client={client}
+                  loading={loading}
+                  setLoading={setLoading}
+                  setError={setError}
+                  setSuccess={setSuccess}
+                  signAndExecuteTransaction={signAndExecuteTransaction}
+                />
+              )}
+
             {activeTab === 'browse' && (
               <ActiveListings
                 account={account}
