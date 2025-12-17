@@ -213,7 +213,7 @@ export default function ListMyNFTs({ account, client, loading, setLoading, setEr
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-2 px-4 rounded-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  List on Marketplace
+                  List on Music Playlist
                 </button>
               </div>
             ))}

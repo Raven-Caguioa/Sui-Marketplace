@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Music, Play, Pause, Clock, Coins, Award, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import { Transaction } from '@mysten/sui/transactions';
+import MusicTabs from './MusicTabs';
 
 const PACKAGE_ID = '0x989abceb5afcc1ee7f460b41e79f03ee4d3406191ee964da95db51a20fa95f27';
 const MARKETPLACE_ID = '0xc92b9ba2f210fadaa565de58660757916c48fd44521998296c4157d0764b5cac';
@@ -8,6 +9,7 @@ const CLOCK_ID = '0x6';
 
 export default function MusicStreaming({ account, client, loading, setLoading, setError, setSuccess, signAndExecuteTransaction }) {
   const [listedMusic, setListedMusic] = useState([]);
+  const [myMusic, setMyMusic] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
   const [playingTrack, setPlayingTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -15,108 +17,158 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
   const [pendingRewards, setPendingRewards] = useState(0);
   const [marketplaceStats, setMarketplaceStats] = useState({ totalMusic: 0, totalListens: 0, totalRewards: 0, poolBalance: 0 });
   const audioRef = React.useRef(null);
+  
   const BLOCKED_NFTS = new Set([
-  '0x1de1522f65eb06dab7e9a8497700067e24cc5c8fd4d178765b895f4e8c44dba5'
+    '0x1de1522f65eb06dab7e9a8497700067e24cc5c8fd4d178765b895f4e8c44dba5'
   ]);
 
-  // Fetch listed music NFTs
-    const fetchListedMusic = async () => {
+  // Fetch listed music NFTs from marketplace
+  const fetchListedMusic = async () => {
     if (!client) return;
     
     try {
-        // Get marketplace stats
-        const tx = new Transaction();
-        tx.moveCall({
+      // Get marketplace stats
+      const tx = new Transaction();
+      tx.moveCall({
         target: `${PACKAGE_ID}::music_marketplace::get_marketplace_stats`,
         arguments: [tx.object(MARKETPLACE_ID)],
-        });
+      });
 
-        const result = await client.devInspectTransactionBlock({
+      const result = await client.devInspectTransactionBlock({
         sender: account?.address || '0x0000000000000000000000000000000000000000000000000000000000000000',
         transactionBlock: tx,
-        });
+      });
 
-        if (result.results?.[0]?.returnValues) {
+      if (result.results?.[0]?.returnValues) {
         const [musicCount, listens, rewards, pool] = result.results[0].returnValues;
         setMarketplaceStats({
-            totalMusic: Number(new DataView(new Uint8Array(musicCount[0]).buffer).getBigUint64(0, true)),
-            totalListens: Number(new DataView(new Uint8Array(listens[0]).buffer).getBigUint64(0, true)),
-            totalRewards: Number(new DataView(new Uint8Array(rewards[0]).buffer).getBigUint64(0, true)) / 1_000_000_000,
-            poolBalance: Number(new DataView(new Uint8Array(pool[0]).buffer).getBigUint64(0, true)) / 1_000_000_000,
+          totalMusic: Number(new DataView(new Uint8Array(musicCount[0]).buffer).getBigUint64(0, true)) - 1,
+          totalListens: Number(new DataView(new Uint8Array(listens[0]).buffer).getBigUint64(0, true)),
+          totalRewards: Number(new DataView(new Uint8Array(rewards[0]).buffer).getBigUint64(0, true)) / 1_000_000_000,
+          poolBalance: Number(new DataView(new Uint8Array(pool[0]).buffer).getBigUint64(0, true)) / 1_000_000_000,
         });
-        }
+      }
 
-        // Fetch actual music NFTs from the marketplace
-        const marketplaceObject = await client.getObject({
+      // Fetch actual music NFTs from the marketplace
+      const marketplaceObject = await client.getObject({
         id: MARKETPLACE_ID,
         options: { showContent: true }
-        });
+      });
 
-        if (marketplaceObject?.data?.content?.fields) {
+      if (marketplaceObject?.data?.content?.fields) {
         const musicLibrary = marketplaceObject.data.content.fields.music_library;
         
         // Get all listed music from the table
         if (musicLibrary?.fields?.id?.id) {
-            const tableId = musicLibrary.fields.id.id;
-            
-            // Get ALL dynamic fields with pagination
-            let allDynamicFields = [];
-            let hasNextPage = true;
-            let cursor = null;
+          const tableId = musicLibrary.fields.id.id;
+          
+          // Get ALL dynamic fields with pagination
+          let allDynamicFields = [];
+          let hasNextPage = true;
+          let cursor = null;
 
-            while (hasNextPage) {
+          while (hasNextPage) {
             const dynamicFieldsResponse = await client.getDynamicFields({
-                parentId: tableId,
-                cursor: cursor,
-                limit: 50, // Fetch 50 at a time
+              parentId: tableId,
+              cursor: cursor,
+              limit: 50,
             });
 
             allDynamicFields = allDynamicFields.concat(dynamicFieldsResponse.data);
             hasNextPage = dynamicFieldsResponse.hasNextPage;
             cursor = dynamicFieldsResponse.nextCursor;
-            }
+          }
 
-            console.log(`Found ${allDynamicFields.length} total music NFTs in marketplace`);
+          console.log(`Found ${allDynamicFields.length} total music NFTs in marketplace`);
 
-            const musicPromises = allDynamicFields.map(async (field) => {
+          const musicPromises = allDynamicFields.map(async (field) => {
             try {
-                const fieldObject = await client.getObject({
+              const fieldObject = await client.getObject({
                 id: field.objectId,
                 options: { showContent: true }
-                });
+              });
 
-                if (fieldObject?.data?.content?.fields?.value?.fields) {
+              if (fieldObject?.data?.content?.fields?.value?.fields) {
                 const listing = fieldObject.data.content.fields.value.fields;
                 const nft = listing.nft.fields;
                 
                 return {
-                    id: field.name.value,
-                    title: nft.name || 'Untitled',
-                    artist: nft.creator ? `${nft.creator.slice(0, 6)}...${nft.creator.slice(-4)}` : 'Unknown',
-                    image: nft.image_url || 'https://via.placeholder.com/300',
-                    audioUrl: nft.music_url || '',
-                    description: nft.description || '',
-                    totalListens: Number(listing.total_listens || 0),
-                    totalListenTime: Number(listing.total_listen_time_seconds || 0),
-                    owner: listing.owner || '',
+                  id: field.name.value,
+                  title: nft.name || 'Untitled',
+                  artist: nft.creator ? `${nft.creator.slice(0, 6)}...${nft.creator.slice(-4)}` : 'Unknown',
+                  image: nft.image_url || 'https://via.placeholder.com/300',
+                  audioUrl: nft.music_url || '',
+                  description: nft.description || '',
+                  totalListens: Number(listing.total_listens || 0),
+                  totalListenTime: Number(listing.total_listen_time_seconds || 0),
+                  owner: listing.owner || '',
                 };
-                }
+              }
             } catch (err) {
-                console.error('Error fetching music NFT:', err);
-                return null;
+              console.error('Error fetching music NFT:', err);
+              return null;
             }
-            });
+          });
 
-            const musicList = (await Promise.all(musicPromises))
-              .filter(m => m !== null && !BLOCKED_NFTS.has(m.id));
-            console.log(`Successfully loaded ${musicList.length} music NFTs`);
-            setListedMusic(musicList);
+          const musicList = (await Promise.all(musicPromises))
+            .filter(m => m !== null && !BLOCKED_NFTS.has(m.id));
+          console.log(`Successfully loaded ${musicList.length} music NFTs`);
+          setListedMusic(musicList);
         }
-        }
+      }
     } catch (err) {
-        console.error('Error fetching music:', err);
+      console.error('Error fetching music:', err);
     }
-    };
+  };
+
+  // Fetch user's owned music NFTs
+  const fetchMyMusic = async () => {
+    if (!client || !account) return;
+    
+    try {
+      // Get all objects owned by the user
+      const ownedObjects = await client.getOwnedObjects({
+        owner: account.address,
+        filter: {
+          StructType: `${PACKAGE_ID}::music_nft::MusicNFT`
+        },
+        options: {
+          showContent: true,
+          showType: true,
+        }
+      });
+
+      const musicPromises = ownedObjects.data.map(async (obj) => {
+        try {
+          if (obj.data?.content?.fields) {
+            const nft = obj.data.content.fields;
+            
+            return {
+              id: obj.data.objectId,
+              title: nft.name || 'Untitled',
+              artist: nft.creator ? `${nft.creator.slice(0, 6)}...${nft.creator.slice(-4)}` : 'You',
+              image: nft.image_url || 'https://via.placeholder.com/300',
+              audioUrl: nft.music_url || '',
+              description: nft.description || '',
+              totalListens: 0, // Personal collection won't have marketplace stats
+              totalListenTime: 0,
+              owner: account.address,
+            };
+          }
+        } catch (err) {
+          console.error('Error fetching owned music NFT:', err);
+          return null;
+        }
+      });
+
+      const musicList = (await Promise.all(musicPromises)).filter(m => m !== null);
+      console.log(`Found ${musicList.length} music NFTs in your collection`);
+      setMyMusic(musicList);
+    } catch (err) {
+      console.error('Error fetching my music:', err);
+    }
+  };
+
   // Check if user has active session (only sets initial state, doesn't override timer)
   const checkActiveSession = async () => {
     if (!client || !account) return;
@@ -195,6 +247,7 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
 
   useEffect(() => {
     fetchListedMusic();
+    fetchMyMusic();
   }, [client, account]);
   
   // Check session only once on mount
@@ -263,7 +316,7 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
         {
           onSuccess: (result) => {
             setSuccess('Started listening! Rewards are accumulating...');
-            const track = listedMusic.find(m => m.id === nftId);
+            const track = listedMusic.find(m => m.id === nftId) || myMusic.find(m => m.id === nftId);
             setCurrentSession({ nftId, startTime: Date.now(), totalSeconds: 0, pendingRewards: 0 });
             setPlayingTrack(track);
             setIsPlaying(true);
@@ -280,6 +333,7 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
             }
             
             fetchListedMusic();
+            fetchMyMusic();
           },
           onError: (error) => {
             setError(error.message || 'Failed to start listening');
@@ -291,6 +345,29 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
     } finally {
       setLoading(false);
     }
+  };
+
+  const playWithoutRewards = (track) => {
+  if (!account) {
+    setError('Please connect your wallet');
+    return;
+  }
+
+  // Set playing track without blockchain interaction
+  setPlayingTrack(track);
+  setIsPlaying(true);
+  
+  // Play audio
+  if (audioRef.current && track?.audioUrl) {
+    audioRef.current.src = track.audioUrl;
+    audioRef.current.play().catch(err => {
+      console.error('Audio play error:', err);
+      setError('Failed to play audio. Please check the music URL.');
+      setIsPlaying(false);
+    });
+  }
+  
+  setSuccess(`Playing ${track.title} - No rewards (not listed on marketplace)`);
   };
 
   const updateListening = async () => {
@@ -377,6 +454,7 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
             // Refresh to see updated pool balance
             setTimeout(() => {
               fetchListedMusic();
+              fetchMyMusic();
             }, 2000);
           },
           onError: (error) => {
@@ -503,7 +581,11 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
             <div className="flex-1">
               <h4 className="text-2xl font-bold text-white">{playingTrack.title}</h4>
               <p className="text-gray-400">{playingTrack.artist}</p>
-              <p className="text-sm text-purple-400 mt-2">Earning 0.0000001 SUI per second</p>
+              {currentSession ? (
+                <p className="text-sm text-purple-400 mt-2">Earning 0.0000001 SUI per second</p>
+              ) : (
+                <p className="text-sm text-yellow-400 mt-2">💡 List this NFT on marketplace to earn rewards</p>
+              )}
             </div>
             <button
               onClick={togglePlayPause}
@@ -515,64 +597,16 @@ export default function MusicStreaming({ account, client, loading, setLoading, s
         </div>
       )}
 
-      {/* Available Music */}
-      <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-white">Available Music</h3>
-          <button
-            onClick={fetchListedMusic}
-            disabled={loading}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
-        
-        {!account ? (
-          <div className="text-center py-12">
-            <AlertCircle className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-            <p className="text-gray-400">Connect your wallet to start listening</p>
-          </div>
-        ) : listedMusic.length === 0 ? (
-          <div className="text-center py-12">
-            <Music className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No music listed yet</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {listedMusic.map((track) => (
-              <div key={track.id} className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-colors border border-white/10">
-                <img 
-                  src={track.image} 
-                  alt={track.title} 
-                  className="w-full h-48 object-cover rounded-lg mb-3"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                  }}
-                />
-                <h4 className="font-bold text-white mb-1">{track.title}</h4>
-                <p className="text-sm text-gray-400 mb-1">{track.artist}</p>
-                {track.description && (
-                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{track.description}</p>
-                )}
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                  <span>🎧 {track.totalListens} plays</span>
-                  <span>⏱️ {Math.floor(track.totalListenTime / 60)}m</span>
-                </div>
-                <button
-                  onClick={() => startListening(track.id)}
-                  disabled={loading || currentSession !== null}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  {currentSession ? 'Already Listening' : 'Start Listening'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Music Tabs - Public Library & My Collection */}
+      <MusicTabs
+        listedMusic={listedMusic}
+        myMusic={myMusic}
+        currentSession={currentSession}
+        loading={loading}
+        startListening={startListening}
+        playWithoutRewards={playWithoutRewards}
+        account={account}
+      />
 
       {/* How it Works */}
       <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">

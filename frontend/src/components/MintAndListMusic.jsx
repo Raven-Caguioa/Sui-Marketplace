@@ -322,8 +322,8 @@ export default function MintMusicNFT({ account, client, loading, setLoading, set
           <div className="flex items-start gap-3">
             <div className="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">4</div>
             <div>
-              <p className="font-semibold text-white">List on Marketplace</p>
-              <p className="text-sm">Go to "My NFTs" page and click "List on Marketplace" to make it public</p>
+              <p className="font-semibold text-white">List on Music Playlist</p>
+              <p className="text-sm">Go to "My NFTs" page and click "List on Music Playlist" to make it public</p>
             </div>
           </div>
           <div className="flex items-start gap-3">

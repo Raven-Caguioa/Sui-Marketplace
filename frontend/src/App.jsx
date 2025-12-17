@@ -158,7 +158,7 @@ export default function MarketplaceFrontend() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <ShoppingCart className="w-8 h-8 text-purple-400" />
-              <h1 className="text-2xl font-bold text-white">Music NFT Marketplace</h1>
+              <h1 className="text-2xl font-bold text-white">Sui Marketplace</h1>
             </div>
             <div className="flex items-center gap-4">
               {account ? (

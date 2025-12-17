@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Search, AlertCircle, RefreshCw } from 'lucide-react';
 import NFTDetailScreen from './NFTDetailScreen';
 
 export default function ActiveListings({
@@ -8,6 +8,8 @@ export default function ActiveListings({
   loading,
   setLoading,
   setError,
+  setSuccess,
+  signAndExecuteTransaction,
   packageId,
   marketplaceId,
   coinType,
@@ -158,134 +160,146 @@ export default function ActiveListings({
   );
 
   return (
-    <div>
-      {/* Show detail screen if an NFT is selected */}
+    <>
+      {/* Show detail screen if an NFT is selected - Full screen overlay */}
       {selectedListing && (
         <NFTDetailScreen 
           listing={selectedListing} 
-          onClose={() => setSelectedListing(null)} 
+          onClose={() => setSelectedListing(null)}
+          account={account}
+          packageId={packageId}
+          marketplaceId={marketplaceId}
+          coinType={coinType}
+          signAndExecuteTransaction={signAndExecuteTransaction}
+          onSuccess={(result) => {
+            setSuccess('Purchase successful!');
+            fetchAllListings();
+          }}
+          onError={(err) => {
+            setError(err.message || 'Purchase failed');
+          }}
         />
       )}
 
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Active Listings</h2>
-        <div className="bg-purple-900/30 border border-purple-500/30 rounded-lg p-4 mb-4">
-          <p className="text-gray-300 text-sm mb-3">
-            Browse all NFTs currently listed on the marketplace. Click on any item to view details.
-          </p>
-          <button
-            onClick={fetchAllListings}
-            disabled={loading}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white rounded-lg font-semibold transition-colors text-sm"
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
-
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="mb-4 bg-blue-600/10 border border-blue-600/30 rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-blue-400 text-sm font-semibold">Debug Info:</p>
-              <p className="text-gray-300 text-xs mt-1">{debugInfo}</p>
-              <p className="text-gray-400 text-xs mt-1">
-                Marketplace ID: {truncateAddress(marketplaceId)}
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Active Listings</h2>
+              <p className="text-gray-400 text-sm">
+                Browse all NFTs currently listed on the marketplace
               </p>
             </div>
+            <button
+              onClick={fetchAllListings}
+              disabled={loading}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, ID, or description..."
+              className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+            />
           </div>
         </div>
-      )}
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, ID, or description..."
-            className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-16">
-          <div className="animate-spin w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading your listings...</p>
-        </div>
-      ) : filteredListings.length === 0 ? (
-        <p className="text-center text-gray-400 py-16">
-          {searchTerm ? 'No listings match your search.' : "You don't have any active listings."}
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredListings.map((listing) => (
-            <div
-              key={listing.itemId}
-              onClick={() => setSelectedListing(listing)}
-              style={{ backgroundColor: 'rgba(109, 40, 217, 0.3)' }}
-              className="backdrop-blur-sm border-2 border-purple-500 rounded-xl p-5 hover:border-purple-400 transition-all cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-purple-500/40 hover:-translate-y-1"
-            >
-              {/* Image Container - Centered */}
-              <div className="flex justify-center mb-4">
-                <div className="relative w-full max-w-[200px] h-[200px] bg-purple-950/70 rounded-lg overflow-hidden flex items-center justify-center border-2 border-purple-500/40">
-                {listing.imageUrl && listing.imageUrl !== 'https://via.placeholder.com/400x400/8b5cf6/ffffff?text=Music+NFT' ? (
-                  <img
-                    src={listing.imageUrl}
-                    alt={listing.name}
-                    className="w-full h-full object-contain"
-                    style={{ maxWidth: '100%', maxHeight: '200px' }}
-                    onError={(e) => {
-                      console.error('Image failed to load:', listing.imageUrl);
-                      e.target.style.display = 'none';
-                      const parent = e.target.parentElement;
-                      parent.innerHTML = '<div class="flex flex-col items-center justify-center w-full h-full text-purple-300"><div class="text-6xl mb-2">🎵</div><div class="text-sm text-purple-400">No Image</div></div>';
-                    }}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full text-purple-300">
-                    <div className="text-6xl mb-2">🎵</div>
-                    <div className="text-sm text-purple-400">Music NFT</div>
-                  </div>
-                )}
-              </div>
-              </div>
-
-              {/* NFT Info */}
-              <div className="text-center">
-                <h3 className="text-white font-bold text-lg mb-2 truncate">{listing.name}</h3>
-                
-                <p className="text-gray-400 text-xs mb-2">
-                  <strong>Item ID:</strong> {listing.itemId.slice(0, 16)}...
+        {/* Debug Info */}
+        {debugInfo && (
+          <div className="bg-blue-600/10 border border-blue-600/30 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-blue-400 text-sm font-semibold">Debug Info:</p>
+                <p className="text-gray-300 text-xs mt-1">{debugInfo}</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  Marketplace ID: {truncateAddress(marketplaceId)}
                 </p>
-                
-                <p className="text-purple-300 font-bold text-xl mb-2">
-                  {formatSui(listing.askPrice)} SUI
-                </p>
-                
-                <p className="text-gray-500 text-xs break-all mb-3">
-                  <strong>Type:</strong> {listing.itemType.split('::').pop()}
-                </p>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedListing(listing);
-                  }}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors text-sm"
-                >
-                  View Details
-                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+          </div>
+        )}
+
+        {/* Listings Grid */}
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="animate-spin w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading listings...</p>
+          </div>
+        ) : filteredListings.length === 0 ? (
+          <div className="bg-white/5 backdrop-blur-lg rounded-xl p-12 border border-white/10 text-center">
+            <ShoppingCart className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">
+              {searchTerm ? 'No listings match your search.' : 'No active listings found.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredListings.map((listing) => (
+              <div
+                key={listing.itemId}
+                onClick={() => setSelectedListing(listing)}
+                className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-all border border-white/10 group hover:border-purple-500/50 cursor-pointer"
+              >
+                {/* Image */}
+                <div className="relative w-full h-48 bg-black/30 rounded-lg overflow-hidden mb-3">
+                  {listing.imageUrl && listing.imageUrl !== 'https://via.placeholder.com/400x400/8b5cf6/ffffff?text=Music+NFT' ? (
+                    <img
+                      src={listing.imageUrl}
+                      alt={listing.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full text-purple-300">
+                      <div className="text-6xl mb-2">🎵</div>
+                      <div className="text-sm text-purple-400">Music NFT</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* NFT Info */}
+                <h4 className="font-bold text-white mb-1 truncate">{listing.name}</h4>
+                <p className="text-sm text-gray-400 mb-1 truncate">
+                  Owner: {truncateAddress(listing.owner)}
+                </p>
+                <p className="text-xs text-gray-500 mb-2 line-clamp-3 h-12">
+                  {listing.description || ' '}
+                </p>
+                
+                {/* Price */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+                  <div>
+                    <p className="text-xs text-gray-500">Price</p>
+                    <p className="text-lg font-bold text-purple-400">{formatSui(listing.askPrice)} SUI</p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedListing(listing);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
