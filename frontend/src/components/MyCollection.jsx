@@ -32,7 +32,6 @@ export default function MyCollection({
     setDebugInfo('Fetching your NFT collection...');
     
     try {
-      // Get all objects owned by the user
       const ownedObjects = await client.getOwnedObjects({
         owner: account.address,
         options: {
@@ -44,14 +43,12 @@ export default function MyCollection({
       console.log('Owned objects:', ownedObjects);
       setDebugInfo(`Found ${ownedObjects.data.length} total objects`);
 
-      // Filter for MusicNFT objects
       const musicNFTs = [];
       
       for (const obj of ownedObjects.data) {
         try {
           const objData = obj.data;
           
-          // Check if this is a MusicNFT by looking at the type
           if (objData?.type && objData.type.includes('music_nft::MusicNFT')) {
             const nftContent = objData.content?.fields || {};
             
@@ -69,7 +66,7 @@ export default function MyCollection({
               creator: nftContent.creator || 'Unknown',
               attributes: nftContent.attributes || '',
               itemType: objData.type,
-              isListed: false, // Not listed in marketplace
+              isListed: false,
               owner: account.address,
             });
           }
@@ -110,7 +107,6 @@ export default function MyCollection({
 
   return (
     <div>
-      {/* Show detail screen if an NFT is selected */}
       {selectedNFT && (
         <NFTDetailScreen 
           listing={selectedNFT} 
@@ -143,7 +139,6 @@ export default function MyCollection({
         </div>
       </div>
 
-      {/* Debug Info */}
       {debugInfo && (
         <div className="mb-4 bg-blue-600/10 border border-blue-600/30 rounded-lg p-3">
           <div className="flex items-start gap-2">
@@ -156,7 +151,6 @@ export default function MyCollection({
         </div>
       )}
 
-      {/* Search Bar */}
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -196,15 +190,14 @@ export default function MyCollection({
               <div
                 key={nft.itemId}
                 onClick={() => setSelectedNFT(nft)}
-                style={{ backgroundColor: 'rgba(109, 40, 217, 0.3)' }}
-                className="backdrop-blur-sm border-2 border-purple-500 rounded-xl p-5 hover:border-purple-400 transition-all cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-purple-500/40 hover:-translate-y-1"
+                className="glass-dark backdrop-blur-sm border-2 border-purple-500 rounded-xl p-5 hover:border-purple-400 transition-all cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-purple-500/40 hover:-translate-y-1"
               >
-                {/* Image Container - Centered */}
+                {/* Image Container */}
                 <div className="flex justify-center mb-4">
                   <div className="relative w-full max-w-[200px] h-[200px] bg-purple-950/70 rounded-lg overflow-hidden flex items-center justify-center border-2 border-purple-500/40">
                     {nft.imageUrl && nft.imageUrl !== 'https://via.placeholder.com/400x400/8b5cf6/ffffff?text=Music+NFT' ? (
                       <img
-                        src={nft.imageUrl}
+                        src={nft.imageUrl.startsWith('http') ? nft.imageUrl : `https://${nft.imageUrl}`}
                         alt={nft.name}
                         className="w-full h-full object-contain"
                         style={{ maxWidth: '100%', maxHeight: '200px' }}
@@ -212,7 +205,7 @@ export default function MyCollection({
                           console.error('Image failed to load:', nft.imageUrl);
                           e.target.style.display = 'none';
                           const parent = e.target.parentElement;
-                          parent.innerHTML = '<div class="flex flex-col items-center justify-center w-full h-full text-purple-300"><div class="text-6xl mb-2">🎵</div><div class="text-sm text-purple-400">No Image</div></div>';
+                          parent.innerHTML = '<div class="flex flex-col items-center justify-center w-full h-full text-purple-300"><div class="text-6xl mb-2">🎵</div><div class="text-sm text-purple-400">Image Failed</div></div>';
                         }}
                       />
                     ) : (
