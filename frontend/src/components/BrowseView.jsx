@@ -20,8 +20,8 @@ const BrowseView = ({
 }) => {
   const [targetAddress, setTargetAddress] = useState('');
   const [targetNFTs, setTargetNFTs] = useState([]);
-  const [selectedMyNFTs, setSelectedMyNFTs] = useState([]);
-  const [selectedTargetNFTs, setSelectedTargetNFTs] = useState([]);
+  const [selectedMyNFT, setSelectedMyNFT] = useState(null);
+  const [selectedTargetNFT, setSelectedTargetNFT] = useState(null);
 
   // Refresh both wallets
   const handleRefreshWallets = async () => {
@@ -65,30 +65,28 @@ const BrowseView = ({
   };
 
   const toggleMyNFTSelection = (nft) => {
-    setSelectedMyNFTs(prev => {
-      const isSelected = prev.some(n => n.id === nft.id);
-      if (isSelected) {
-        return prev.filter(n => n.id !== nft.id);
-      } else {
-        return [...prev, nft];
-      }
-    });
+    // If clicking the same NFT, deselect it
+    if (selectedMyNFT?.id === nft.id) {
+      setSelectedMyNFT(null);
+    } else {
+      // Otherwise, select the new NFT (replacing any previous selection)
+      setSelectedMyNFT(nft);
+    }
   };
 
   const toggleTargetNFTSelection = (nft) => {
-    setSelectedTargetNFTs(prev => {
-      const isSelected = prev.some(n => n.id === nft.id);
-      if (isSelected) {
-        return prev.filter(n => n.id !== nft.id);
-      } else {
-        return [...prev, nft];
-      }
-    });
+    // If clicking the same NFT, deselect it
+    if (selectedTargetNFT?.id === nft.id) {
+      setSelectedTargetNFT(null);
+    } else {
+      // Otherwise, select the new NFT (replacing any previous selection)
+      setSelectedTargetNFT(nft);
+    }
   };
 
-  const handleCreateTrades = async () => {
-    if (selectedMyNFTs.length === 0 || selectedTargetNFTs.length === 0 || !account) {
-      setError('Please select your NFTs and target NFTs');
+  const handleCreateTrade = async () => {
+    if (!selectedMyNFT || !selectedTargetNFT || !account) {
+      setError('Please select one NFT from your wallet and one from the target wallet');
       return;
     }
 
@@ -98,47 +96,37 @@ const BrowseView = ({
 
     try {
       const { Transaction } = await import('@mysten/sui/transactions');
+      const tx = new Transaction();
       
-      // Create trades for each combination of my NFTs with target NFTs
-      for (const myNFT of selectedMyNFTs) {
-        for (const targetNFT of selectedTargetNFTs) {
-          const tx = new Transaction();
-          
-          tx.moveCall({
-            target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::create_trade`,
-            typeArguments: [myNFT.type, targetNFT.type],
-            arguments: [
-              tx.object(myNFT.id),
-              tx.pure.address(targetAddress),
-              tx.pure.id(targetNFT.id),
-              tx.object(TRADING_CONFIG.CLOCK_ID),
-            ],
-          });
+      tx.moveCall({
+        target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::create_trade`,
+        typeArguments: [selectedMyNFT.type, selectedTargetNFT.type],
+        arguments: [
+          tx.object(selectedMyNFT.id),
+          tx.pure.address(targetAddress),
+          tx.pure.id(selectedTargetNFT.id),
+          tx.object(TRADING_CONFIG.CLOCK_ID),
+        ],
+      });
 
-          await new Promise((resolve, reject) => {
-            signAndExecuteTransaction(
-              { transaction: tx },
-              {
-                onSuccess: (result) => {
-                  resolve(result);
-                },
-                onError: (error) => {
-                  reject(error);
-                },
-              }
-            );
-          });
+      signAndExecuteTransaction(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setSuccess('Trade request created successfully!');
+            setSelectedMyNFT(null);
+            setSelectedTargetNFT(null);
+            setLoading(false);
+            setView('pending');
+          },
+          onError: (error) => {
+            setError('Failed to create trade: ' + error.message);
+            setLoading(false);
+          },
         }
-      }
-
-      const totalTrades = selectedMyNFTs.length * selectedTargetNFTs.length;
-      setSuccess(`${totalTrades} trade request(s) created successfully!`);
-      setSelectedMyNFTs([]);
-      setSelectedTargetNFTs([]);
-      setView('pending');
+      );
     } catch (err) {
-      setError('Failed to create trades: ' + err.message);
-    } finally {
+      setError('Failed to create trade: ' + err.message);
       setLoading(false);
     }
   };
@@ -204,11 +192,11 @@ const BrowseView = ({
           </div>
           
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Your NFTs - Multi-select */}
+            {/* Your NFTs - Single select */}
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h4 className="text-sm font-semibold text-purple-400 uppercase">
-                  YOUR NFTS (Selected {selectedMyNFTs.length})
+                  YOUR NFT {selectedMyNFT ? '(1 Selected)' : '(Select 1)'}
                 </h4>
               </div>
               <div style={{maxHeight: '400px', overflowY: 'auto'}} className="space-y-2 custom-scrollbar pr-2 border-2 border-white/10 rounded-lg p-3 bg-black/20">
@@ -224,7 +212,7 @@ const BrowseView = ({
                     <NFTCard
                       key={nft.id}
                       nft={nft}
-                      isSelected={selectedMyNFTs.some(n => n.id === nft.id)}
+                      isSelected={selectedMyNFT?.id === nft.id}
                       onSelect={() => toggleMyNFTSelection(nft)}
                       selectionColor="purple"
                     />
@@ -233,17 +221,17 @@ const BrowseView = ({
               </div>
             </div>
 
-            {/* Target NFTs - Multi-select */}
+            {/* Target NFTs - Single select */}
             <div>
               <h4 className="text-sm font-semibold text-green-400 mb-3 uppercase">
-                OTHERS NFT (Selected {selectedTargetNFTs.length})
+                OTHER'S NFT {selectedTargetNFT ? '(1 Selected)' : '(Select 1)'}
               </h4>
               <div style={{maxHeight: '400px', overflowY: 'auto'}} className="space-y-2 custom-scrollbar pr-2 border-2 border-white/10 rounded-lg p-3 bg-black/20">
                 {targetNFTs.map((nft) => (
                   <NFTCard
                     key={nft.id}
                     nft={nft}
-                    isSelected={selectedTargetNFTs.some(n => n.id === nft.id)}
+                    isSelected={selectedTargetNFT?.id === nft.id}
                     onSelect={() => toggleTargetNFTSelection(nft)}
                     selectionColor="green"
                   />
@@ -254,19 +242,19 @@ const BrowseView = ({
 
           {/* Create Trade Button */}
           <button
-            onClick={handleCreateTrades}
-            disabled={selectedMyNFTs.length === 0 || selectedTargetNFTs.length === 0 || loading}
+            onClick={handleCreateTrade}
+            disabled={!selectedMyNFT || !selectedTargetNFT || loading}
             className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-purple-600 to-green-600 hover:from-purple-700 hover:to-green-700 rounded-lg font-bold text-lg text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
                 <Loader className="w-5 h-5 animate-spin" />
-                Creating Trades...
+                Creating Trade...
               </>
             ) : (
               <>
                 <ArrowLeftRight className="w-5 h-5" />
-                Create {selectedMyNFTs.length > 0 && selectedTargetNFTs.length > 0 ? selectedMyNFTs.length * selectedTargetNFTs.length : ''} Trade Request{(selectedMyNFTs.length * selectedTargetNFTs.length) > 1 ? 's' : ''}
+                Create Trade Request
               </>
             )}
           </button>
