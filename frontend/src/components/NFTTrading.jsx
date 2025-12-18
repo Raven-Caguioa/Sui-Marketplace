@@ -100,18 +100,51 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
         limit: 50,
       });
 
-      const userTrades = events.data
-        .filter(event => {
-          const { initiator, target } = event.parsedJson;
-          return initiator === account.address || target === account.address;
-        })
-        .map(event => ({
-          ...event.parsedJson,
-          timestamp: event.timestampMs,
-          isInitiator: event.parsedJson.initiator === account.address,
-        }));
+      // Get trade objects and their types
+      const tradesWithDetails = await Promise.all(
+        events.data
+          .filter(event => {
+            const { initiator, target } = event.parsedJson;
+            return initiator === account.address || target === account.address;
+          })
+          .map(async (event) => {
+            try {
+              // Get the actual trade object from transaction effects
+              const tx = await client.getTransactionBlock({
+                digest: event.id.txDigest,
+                options: { showEffects: true, showObjectChanges: true }
+              });
 
-      setMyTrades(userTrades);
+              // Find the created TradeRequest object
+              const tradeObject = tx.objectChanges?.find(
+                change => change.type === 'created' && 
+                         change.objectType?.includes('TradeRequest')
+              );
+
+              if (tradeObject) {
+                // Extract type arguments from the object type
+                // Format: 0xPACKAGE::trade::TradeRequest<Type1, Type2>
+                const typeMatch = tradeObject.objectType.match(/<(.+),\s*(.+)>/);
+                const type1 = typeMatch ? typeMatch[1].trim() : null;
+                const type2 = typeMatch ? typeMatch[2].trim() : null;
+
+                return {
+                  ...event.parsedJson,
+                  timestamp: event.timestampMs,
+                  isInitiator: event.parsedJson.initiator === account.address,
+                  tradeObjectId: tradeObject.objectId,
+                  type1,
+                  type2,
+                };
+              }
+            } catch (err) {
+              console.error('Error fetching trade details:', err);
+            }
+            return null;
+          })
+      );
+
+      setMyTrades(tradesWithDetails.filter(t => t !== null));
     } catch (error) {
       console.error('Error fetching trades:', error);
       setError('Failed to fetch trades');
@@ -173,8 +206,13 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
     }
   };
 
-  // Cancel a trade
-  const handleCancelTrade = async (trade) => {
+  // Accept a trade
+  const handleAcceptTrade = async (trade) => {
+    if (!trade.type1 || !trade.type2) {
+      setError('Cannot determine NFT types for this trade');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setSuccess('');
@@ -183,13 +221,140 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
       const { Transaction } = await import('@mysten/sui/transactions');
       const tx = new Transaction();
       
-      // Note: You'll need to query the actual trade object ID
-      // This is simplified - in production, query the trade object first
+      tx.moveCall({
+        target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::accept_trade`,
+        typeArguments: [trade.type1, trade.type2],
+        arguments: [
+          tx.object(trade.tradeObjectId),
+          tx.object(trade.target_nft_id),
+          tx.object(TRADING_CONFIG.CLOCK_ID),
+        ],
+      });
+
+      signAndExecuteTransaction(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setSuccess(`Trade accepted! Digest: ${result.digest}`);
+            fetchMyTrades();
+          },
+          onError: (error) => {
+            setError('Failed to accept: ' + error.message);
+          },
+        }
+      );
+    } catch (err) {
+      setError('Failed to accept: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reject a trade
+  const handleRejectTrade = async (trade) => {
+    if (!trade.type1 || !trade.type2) {
+      setError('Cannot determine NFT types for this trade');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { Transaction } = await import('@mysten/sui/transactions');
+      const tx = new Transaction();
+      
+      tx.moveCall({
+        target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::reject_trade`,
+        typeArguments: [trade.type1, trade.type2],
+        arguments: [
+          tx.object(trade.tradeObjectId),
+        ],
+      });
+
+      signAndExecuteTransaction(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setSuccess(`Trade rejected! Digest: ${result.digest}`);
+            fetchMyTrades();
+          },
+          onError: (error) => {
+            setError('Failed to reject: ' + error.message);
+          },
+        }
+      );
+    } catch (err) {
+      setError('Failed to reject: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Complete a trade
+  const handleCompleteTrade = async (trade) => {
+    if (!trade.type1 || !trade.type2) {
+      setError('Cannot determine NFT types for this trade');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { Transaction } = await import('@mysten/sui/transactions');
+      const tx = new Transaction();
+      
+      tx.moveCall({
+        target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::complete_trade`,
+        typeArguments: [trade.type1, trade.type2],
+        arguments: [
+          tx.object(trade.tradeObjectId),
+          tx.object(TRADING_CONFIG.CLOCK_ID),
+        ],
+      });
+
+      signAndExecuteTransaction(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setSuccess(`Trade completed! Digest: ${result.digest}`);
+            fetchMyTrades();
+          },
+          onError: (error) => {
+            setError('Failed to complete: ' + error.message);
+          },
+        }
+      );
+    } catch (err) {
+      setError('Failed to complete: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cancel a trade
+  const handleCancelTrade = async (trade) => {
+    if (!trade.type1 || !trade.type2) {
+      setError('Cannot determine NFT types for this trade');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { Transaction } = await import('@mysten/sui/transactions');
+      const tx = new Transaction();
+      
       tx.moveCall({
         target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::cancel_trade`,
-        typeArguments: ['TYPE1', 'TYPE2'], // Replace with actual types
+        typeArguments: [trade.type1, trade.type2],
         arguments: [
-          tx.object(trade.trade_id),
+          tx.object(trade.tradeObjectId),
         ],
       });
 
@@ -443,17 +608,28 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
 
                 <div className="flex gap-3">
                   {trade.isInitiator ? (
-                    <button
-                      onClick={() => handleCancelTrade(trade)}
-                      disabled={loading}
-                      className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Cancel Trade
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleCancelTrade(trade)}
+                        disabled={loading}
+                        className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Cancel Trade
+                      </button>
+                      <button
+                        onClick={() => handleCompleteTrade(trade)}
+                        disabled={loading}
+                        className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Complete Trade
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
+                        onClick={() => handleAcceptTrade(trade)}
                         disabled={loading}
                         className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
@@ -461,6 +637,7 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
                         Accept Trade
                       </button>
                       <button
+                        onClick={() => handleRejectTrade(trade)}
                         disabled={loading}
                         className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
