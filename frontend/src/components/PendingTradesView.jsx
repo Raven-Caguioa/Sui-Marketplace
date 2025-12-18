@@ -28,6 +28,7 @@ const PendingTradesView = ({
       const { Transaction } = await import('@mysten/sui/transactions');
       const tx = new Transaction();
       
+      // Accept the trade
       tx.moveCall({
         target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::accept_trade`,
         typeArguments: [trade.type1, trade.type2],
@@ -38,20 +39,30 @@ const PendingTradesView = ({
         ],
       });
 
+      // Immediately complete the trade in the same transaction
+      tx.moveCall({
+        target: `${TRADING_CONFIG.PACKAGE_ID}::${TRADING_CONFIG.MODULE_NAME}::complete_trade`,
+        typeArguments: [trade.type1, trade.type2],
+        arguments: [
+          tx.object(trade.tradeObjectId),
+          tx.object(TRADING_CONFIG.CLOCK_ID),
+        ],
+      });
+
       signAndExecuteTransaction(
         { transaction: tx },
         {
           onSuccess: (result) => {
-            setSuccess(`Trade accepted! Digest: ${result.digest}`);
+            setSuccess(`Trade completed successfully! Digest: ${result.digest}`);
             fetchMyTrades();
           },
           onError: (error) => {
-            setError('Failed to accept: ' + error.message);
+            setError('Failed to complete trade: ' + error.message);
           },
         }
       );
     } catch (err) {
-      setError('Failed to accept: ' + err.message);
+      setError('Failed to complete trade: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -252,7 +263,7 @@ const PendingTradesView = ({
                     className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Accept Trade
+                    Accept & Complete
                   </button>
                   <button
                     onClick={() => handleRejectTrade(trade)}

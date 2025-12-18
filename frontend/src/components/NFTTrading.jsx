@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeftRight, Search, Clock, CheckCircle } from 'lucide-react';
 import BrowseView from './BrowseView';
 import PendingTradesView from './PendingTradesView';
-import FinalizationView from './FinalizationView';
+import TradeHistoryView from './TradeHistoryView';
 
 // ==================== TRADING CONTRACT CONFIGURATION ====================
 export const TRADING_CONFIG = {
@@ -82,8 +82,9 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
   const [view, setView] = useState('browse');
   const [userNFTs, setUserNFTs] = useState([]);
   const [pendingTrades, setPendingTrades] = useState([]);
-  const [acceptedTrades, setAcceptedTrades] = useState([]);
+  const [completedTrades, setCompletedTrades] = useState([]);
   const [loadingNFTs, setLoadingNFTs] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Load user's NFTs
   useEffect(() => {
@@ -93,7 +94,7 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
         .then(setUserNFTs)
         .finally(() => setLoadingNFTs(false));
     }
-  }, [account, client]);
+  }, [account, client, refreshTrigger]);
 
   // Fetch user's trades
   const fetchMyTrades = async () => {
@@ -162,10 +163,10 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
 
       const validTrades = tradesWithDetails.filter(t => t !== null);
       const pending = validTrades.filter(t => t.status === 0);
-      const accepted = validTrades.filter(t => t.status === 1);
+      const completed = validTrades.filter(t => t.status === 2);
       
       setPendingTrades(pending);
-      setAcceptedTrades(accepted);
+      setCompletedTrades(completed);
     } catch (error) {
       console.error('Error fetching trades:', error);
       setError('Failed to fetch trades');
@@ -175,7 +176,7 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
   };
 
   useEffect(() => {
-    if ((view === 'pending' || view === 'finalization') && account && client) {
+    if ((view === 'pending' || view === 'history') && account && client) {
       fetchMyTrades();
     }
   }, [view, account, client]);
@@ -217,15 +218,15 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
           Pending Trades
         </button>
         <button
-          onClick={() => setView('finalization')}
+          onClick={() => setView('history')}
           className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-            view === 'finalization'
+            view === 'history'
               ? 'bg-purple-600 text-white'
               : 'bg-white/5 text-gray-400 hover:text-white'
           }`}
         >
           <CheckCircle className="w-4 h-4 inline mr-2" />
-          Finalization
+          Trade History
         </button>
       </div>
 
@@ -243,6 +244,8 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
           loadingNFTs={loadingNFTs}
           setLoadingNFTs={setLoadingNFTs}
           setView={setView}
+          refreshTrigger={refreshTrigger}
+          setRefreshTrigger={setRefreshTrigger}
         />
       )}
 
@@ -262,15 +265,10 @@ const NFTTrading = ({ account, client, loading, setLoading, setError, setSuccess
         />
       )}
 
-      {view === 'finalization' && (
-        <FinalizationView
+      {view === 'history' && (
+        <TradeHistoryView
           account={account}
-          acceptedTrades={acceptedTrades}
-          loading={loading}
-          setLoading={setLoading}
-          setError={setError}
-          setSuccess={setSuccess}
-          signAndExecuteTransaction={signAndExecuteTransaction}
+          completedTrades={completedTrades}
           loadingNFTs={loadingNFTs}
           fetchMyTrades={fetchMyTrades}
         />
