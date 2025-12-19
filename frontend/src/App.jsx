@@ -19,9 +19,10 @@ import UnlistMyNFTs from './components/UnlistMyNFTs'; // ← ADD THIS IMPORT
 import NFTTrading from './components/NFTTrading';
 
 // REPLACE THESE WITH YOUR ACTUAL IDs
-const PACKAGE_ID = '0x08ac46b00eb814de6e803b7abb60b42abbaf49712314f4ed188f4fea6d4ce3ec';
+// These should be your actual deployed IDs:
+const PACKAGE_ID = "0xef31a73e2b31f94fc64fba29c65482857ef60c30a10932da7e86c74f9a9a4ac8";
+const COLLECTION_ID = "0xb0d2997345aed39db636afb6f66f96e660aef921f0eb7a440e412afe69285d05";
 const MARKETPLACE_ID = '0xb9aa59546415a92290e60ad5d90a9d0b013da1b3daa046aba44a0be113a83b84';
-const COLLECTION_ID = '0x07c09c81925e5f995479fac9caa6fdc0983863e800ee4b04831bcd44e4fb427a';
 const COIN_TYPE = '0x2::sui::SUI';
 
 export default function MarketplaceFrontend() {
