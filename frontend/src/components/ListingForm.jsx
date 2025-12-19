@@ -19,7 +19,8 @@ export default function ListingForm({
   setSuccess,
   signAndExecuteTransaction,
   fetchMarketplaceData,
-  packageId,
+  nftPackageId,        // NEW package (for NFT type)
+  marketplacePackageId, // OLD package (for marketplace functions)
   marketplaceId,
   coinType,
 }) {
@@ -28,13 +29,13 @@ export default function ListingForm({
   const [autoFillType, setAutoFillType] = useState(true);
   const [customItemType, setCustomItemType] = useState('');
 
-  // Auto-generate the item type based on package ID
+  // Auto-generate the item type based on NFT package ID
   const getItemType = () => {
     if (!autoFillType && customItemType) {
       return customItemType;
     }
-    // Default to MusicNFT type with the current package
-    return `${packageId}::music_nft::MusicNFT`;
+    // Use the NEW package ID where music_nft with rarity is deployed
+    return `${nftPackageId}::music_nft::MusicNFT`;
   };
 
   const listItem = async () => {
@@ -43,8 +44,8 @@ export default function ListingForm({
       return;
     }
 
-    if (!packageId || !marketplaceId) {
-      setError('Package ID or Marketplace ID is missing');
+    if (!nftPackageId || !marketplacePackageId || !marketplaceId) {
+      setError('NFT Package ID, Marketplace Package ID, or Marketplace ID is missing');
       return;
     }
 
@@ -57,16 +58,20 @@ export default function ListingForm({
       const itemType = getItemType();
 
       console.log('🏷️ Listing NFT:');
+      console.log('NFT Package ID:', nftPackageId);
+      console.log('Marketplace Package ID:', marketplacePackageId);
       console.log('Item ID:', itemToList);
       console.log('Item Type:', itemType);
       console.log('Price:', askPrice, 'SUI =', priceInMist, 'MIST');
       console.log('Marketplace:', marketplaceId);
       console.log('Coin Type:', coinType);
+      console.log('Target:', `${marketplacePackageId}::marketplace::list`);
 
       const tx = new Transaction();
+      
       tx.moveCall({
-        target: `${packageId}::marketplace::list`,
-        typeArguments: [itemType, coinType],
+        target: `${marketplacePackageId}::marketplace::list`, // Use OLD package for marketplace
+        typeArguments: [itemType, coinType], // Use NEW package in itemType
         arguments: [
           tx.object(marketplaceId),
           tx.object(itemToList),
@@ -96,7 +101,7 @@ export default function ListingForm({
             } else if (errorMessage.includes('not found')) {
               errorMessage = 'NFT not found. Please check the Object ID';
             } else if (errorMessage.includes('type')) {
-              errorMessage = 'Type mismatch. Make sure the Package ID is correct';
+              errorMessage = 'Type mismatch. Make sure the Package IDs are correct';
             }
             
             setError(errorMessage);
@@ -195,19 +200,22 @@ export default function ListingForm({
                   <code className="text-xs text-gray-300 break-all">
                     {currentItemType}
                   </code>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Using NEW package: {nftPackageId?.slice(0, 10)}...
+                  </p>
                 </div>
               ) : (
                 <input
                   type="text"
                   value={customItemType}
                   onChange={(e) => setCustomItemType(e.target.value)}
-                  placeholder={`${packageId}::music_nft::MusicNFT`}
+                  placeholder={`${nftPackageId}::music_nft::MusicNFT`}
                   className="w-full bg-white/5 border border-blue-500/30 rounded px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-blue-500"
                 />
               )}
               <p className="text-gray-500 text-xs mt-2">
                 {autoFillType 
-                  ? '✓ Auto-filled based on your Package ID' 
+                  ? '✓ Auto-filled based on your NFT Package ID' 
                   : 'Enter custom type if using different NFT contract'}
               </p>
             </div>
@@ -260,8 +268,12 @@ export default function ListingForm({
                 <span className="text-gray-300">Wallet: {account ? 'Connected' : 'Not Connected'}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className={packageId ? 'text-green-400' : 'text-red-400'}>●</span>
-                <span className="text-gray-300">Package ID: {packageId ? '✓' : 'Missing'}</span>
+                <span className={nftPackageId ? 'text-green-400' : 'text-red-400'}>●</span>
+                <span className="text-gray-300">NFT Package: {nftPackageId ? '✓' : 'Missing'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={marketplacePackageId ? 'text-green-400' : 'text-red-400'}>●</span>
+                <span className="text-gray-300">Marketplace Package: {marketplacePackageId ? '✓' : 'Missing'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className={marketplaceId ? 'text-green-400' : 'text-red-400'}>●</span>

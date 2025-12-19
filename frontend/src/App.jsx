@@ -11,17 +11,22 @@ import InfoTab from './components/InfoTab';
 import AlertMessage from './components/AlertMessage';
 import MintNFT from './components/MintNFT';
 import ActiveListings from './components/ActiveListings';
-import MyCollection from './components/MyCollection'; // Import the new component
+import MyCollection from './components/MyCollection';
 import MusicStreaming from './components/MusicStreaming';
 import MintAndListMusic from './components/MintAndListMusic';
-import ListYourNFTs from './components/ListYourNFTs'; // ← ADD THIS TOO
-import UnlistMyNFTs from './components/UnlistMyNFTs'; // ← ADD THIS IMPORT
+import ListYourNFTs from './components/ListYourNFTs';
+import UnlistMyNFTs from './components/UnlistMyNFTs';
 import NFTTrading from './components/NFTTrading';
 
-// REPLACE THESE WITH YOUR ACTUAL IDs
-// These should be your actual deployed IDs:
-const PACKAGE_ID = "0xef31a73e2b31f94fc64fba29c65482857ef60c30a10932da7e86c74f9a9a4ac8";
-const COLLECTION_ID = "0xb0d2997345aed39db636afb6f66f96e660aef921f0eb7a440e412afe69285d05";
+// OLD PACKAGE (where marketplace was created)
+const OLD_PACKAGE_ID = '0x08ac46b00eb814de6e803b7abb60b42abbaf49712314f4ed188f4fea6d4ce3ec';
+const OLD_COLLECTION_ID = '0x07c09c81925e5f995479fac9caa6fdc0983863e800ee4b04831bcd44e4fb427a';
+
+// NEW PACKAGE (with rarity system for minting)
+const NEW_PACKAGE_ID = "0xef31a73e2b31f94fc64fba29c65482857ef60c30a10932da7e86c74f9a9a4ac8";
+const NEW_COLLECTION_ID = "0xb0d2997345aed39db636afb6f66f96e660aef921f0eb7a440e412afe69285d05";
+
+// Shared marketplace and coin type
 const MARKETPLACE_ID = '0xb9aa59546415a92290e60ad5d90a9d0b013da1b3daa046aba44a0be113a83b84';
 const COIN_TYPE = '0x2::sui::SUI';
 
@@ -46,7 +51,7 @@ export default function MarketplaceFrontend() {
     try {
       const tx = new Transaction();
       tx.moveCall({
-        target: `${PACKAGE_ID}::marketplace::get_listing_count`,
+        target: `${OLD_PACKAGE_ID}::marketplace::get_listing_count`,
         typeArguments: [COIN_TYPE],
         arguments: [tx.object(MARKETPLACE_ID)],
       });
@@ -65,7 +70,7 @@ export default function MarketplaceFrontend() {
       if (account?.address) {
         const tx2 = new Transaction();
         tx2.moveCall({
-          target: `${PACKAGE_ID}::marketplace::get_pending_payment`,
+          target: `${OLD_PACKAGE_ID}::marketplace::get_pending_payment`,
           typeArguments: [COIN_TYPE],
           arguments: [tx2.object(MARKETPLACE_ID), tx2.pure.address(account.address)],
         });
@@ -112,7 +117,7 @@ export default function MarketplaceFrontend() {
     try {
       const tx = new Transaction();
       tx.moveCall({
-        target: `${PACKAGE_ID}::marketplace::take_profits_and_keep`,
+        target: `${OLD_PACKAGE_ID}::marketplace::take_profits_and_keep`, // Use OLD package
         typeArguments: [COIN_TYPE],
         arguments: [tx.object(MARKETPLACE_ID)],
       });
@@ -140,12 +145,12 @@ export default function MarketplaceFrontend() {
 
   const tabs = [
     { id: 'streaming', label: '🎵 Music Rewards' },
-    { id: 'upload', label: '🎤 Upload Music' }, // NEW TAB
-    { id: 'mynfts', label: '📁 Send Music NFT' }, // ← ADD THIS
+    { id: 'upload', label: '🎤 Upload Music' },
+    { id: 'mynfts', label: '📁 Send Music NFT' },
     { id: 'unlist', label: '📤 Unlist My NFTs' },
     { id: 'trading', label: '🔄 P2P Trading' },    
     { id: 'browse', label: 'Browse' },
-    { id: 'collection', label: 'My Collection' }, // New tab
+    { id: 'collection', label: 'My Collection' },
     { id: 'mint', label: 'Mint NFT' },
     { id: 'list', label: 'List' },
     { id: 'buy', label: 'Buy' },
@@ -256,19 +261,19 @@ export default function MarketplaceFrontend() {
               />
             )}
 
-              {activeTab === 'mynfts' && (
-                <ListYourNFTs
-                  account={account}
-                  client={client}
-                  loading={loading}
-                  setLoading={setLoading}
-                  setError={setError}
-                  setSuccess={setSuccess}
-                  signAndExecuteTransaction={signAndExecuteTransaction}
-                />
-              )}
+            {activeTab === 'mynfts' && (
+              <ListYourNFTs
+                account={account}
+                client={client}
+                loading={loading}
+                setLoading={setLoading}
+                setError={setError}
+                setSuccess={setSuccess}
+                signAndExecuteTransaction={signAndExecuteTransaction}
+              />
+            )}
 
-              {activeTab === 'unlist' && (
+            {activeTab === 'unlist' && (
               <UnlistMyNFTs
                 account={account}
                 client={client}
@@ -277,11 +282,11 @@ export default function MarketplaceFrontend() {
                 setError={setError}
                 setSuccess={setSuccess}
                 signAndExecuteTransaction={signAndExecuteTransaction}
-                packageId={PACKAGE_ID}
+                marketplacePackageId={OLD_PACKAGE_ID} // Use OLD package for marketplace functions
                 marketplaceId={MARKETPLACE_ID}
               />
             )}
-            {/* ADD THIS NEW SECTION */}
+
             {activeTab === 'trading' && (
               <NFTTrading
                 account={account}
@@ -301,7 +306,8 @@ export default function MarketplaceFrontend() {
                 loading={loading}
                 setLoading={setLoading}
                 setError={setError}
-                packageId={PACKAGE_ID}
+                marketplacePackageId={OLD_PACKAGE_ID} // Use OLD package for marketplace
+                nftPackageId={NEW_PACKAGE_ID} // Can view both old and new NFTs
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
               />
@@ -314,7 +320,8 @@ export default function MarketplaceFrontend() {
                 loading={loading}
                 setLoading={setLoading}
                 setError={setError}
-                packageId={PACKAGE_ID}
+                nftPackageId={NEW_PACKAGE_ID} // Show new NFTs with rarity
+                oldNftPackageId={OLD_PACKAGE_ID} // Also show old NFTs
               />
             )}
 
@@ -326,8 +333,8 @@ export default function MarketplaceFrontend() {
                 setError={setError}
                 setSuccess={setSuccess}
                 signAndExecuteTransaction={signAndExecuteTransaction}
-                packageId={PACKAGE_ID}
-                collectionId={COLLECTION_ID}
+                packageId={NEW_PACKAGE_ID} // Use NEW package for minting with rarity
+                collectionId={NEW_COLLECTION_ID}
               />
             )}
 
@@ -340,7 +347,8 @@ export default function MarketplaceFrontend() {
                 setSuccess={setSuccess}
                 signAndExecuteTransaction={signAndExecuteTransaction}
                 fetchMarketplaceData={fetchMarketplaceData}
-                packageId={PACKAGE_ID}
+                nftPackageId={NEW_PACKAGE_ID} // NEW package for NFT type
+                marketplacePackageId={OLD_PACKAGE_ID} // OLD package for marketplace functions
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
               />
@@ -355,7 +363,8 @@ export default function MarketplaceFrontend() {
                 setSuccess={setSuccess}
                 signAndExecuteTransaction={signAndExecuteTransaction}
                 fetchMarketplaceData={fetchMarketplaceData}
-                packageId={PACKAGE_ID}
+                marketplacePackageId={OLD_PACKAGE_ID} // Use OLD package for marketplace
+                nftPackageId={NEW_PACKAGE_ID} // NFT type from NEW package
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
               />
@@ -370,7 +379,8 @@ export default function MarketplaceFrontend() {
                 setSuccess={setSuccess}
                 signAndExecuteTransaction={signAndExecuteTransaction}
                 fetchMarketplaceData={fetchMarketplaceData}
-                packageId={PACKAGE_ID}
+                marketplacePackageId={OLD_PACKAGE_ID} // Use OLD package for marketplace
+                nftPackageId={NEW_PACKAGE_ID} // NFT type from NEW package
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
               />
@@ -383,7 +393,7 @@ export default function MarketplaceFrontend() {
                 loading={loading}
                 setLoading={setLoading}
                 setError={setError}
-                packageId={PACKAGE_ID}
+                marketplacePackageId={OLD_PACKAGE_ID} // Use OLD package for marketplace
                 marketplaceId={MARKETPLACE_ID}
                 coinType={COIN_TYPE}
               />
@@ -391,9 +401,11 @@ export default function MarketplaceFrontend() {
 
             {activeTab === 'info' && (
               <InfoTab
-                packageId={PACKAGE_ID}
+                oldPackageId={OLD_PACKAGE_ID}
+                newPackageId={NEW_PACKAGE_ID}
                 marketplaceId={MARKETPLACE_ID}
-                collectionId={COLLECTION_ID}
+                oldCollectionId={OLD_COLLECTION_ID}
+                newCollectionId={NEW_COLLECTION_ID}
                 coinType={COIN_TYPE}
                 listingCount={listingCount}
               />
